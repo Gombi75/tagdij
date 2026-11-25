@@ -127,7 +127,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const ft=n=>(Math.round(+n||0)).toLocaleString('hu-HU')+' Ft';
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 /* ===== BEÁLLÍTÁS: ide másold az Apps Script webalkalmazás URL-jét ===== */
-const API_URL='IDE_MASOLD_A_WEBAPP_URL-T';
+const API_URL='https://script.google.com/macros/s/…/exec';
 /* ===================================================================== */
 let cfg={packages:[]},members=[],payments=[],Y=CY,editId=null,autoAmt=true,busy=0;
 let KEY='';try{KEY=localStorage.getItem('vesc-tagdij-key')||''}catch(e){}
