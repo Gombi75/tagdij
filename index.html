@@ -69,7 +69,7 @@ label{display:grid;gap:4px;font-size:14px;font-weight:600}
 </style><script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script></head><body>
 <header><div class="top"><div><h1>VESC tagdíjak</h1><div class="sub">Befizetések, csomagok és hátralékok egy helyen</div></div>
 <div class="yr"><label class="yr">Év <select id="year"></select></label><button type="button" id="refresh" class="hb">Frissítés</button><button type="button" id="logout" class="hb">Kilépés</button></div></div>
-<nav id="nav"><a href="#attekintes">Áttekintés</a><a href="#racs">Havi rács</a><a href="#befizetes">Új befizetés</a><a href="#tagok">Tagok és csomagok</a></nav></header>
+<nav id="nav"><a href="#attekintes">Áttekintés</a><a href="#racs">Havi rács</a><a href="#befizetes">Új befizetés</a><a href="#tagok">Tagok és csomagok</a><a href="#naplo">Napló</a></nav></header>
 <main>
 <p id="st">Adatok betöltése…</p>
 
@@ -105,6 +105,15 @@ label{display:grid;gap:4px;font-size:14px;font-weight:600}
 <div class="card" id="pcard"><b>Válassz befizetőt</b><p class="note">Itt látod a tag csomagját, eddigi befizetéseit és a fennmaradó összeget.</p></div>
 </div></section>
 
+<section id="naplo">
+<p class="note">Minden változás ide kerül: ki, mikor, mit rögzített, módosított vagy törölt, valamint a belépések. A teljes napló (az előtte/utána állapottal) a Google Sheet <b>Napló</b> lapján is megvan. A táblázatban kézzel végzett módosítások is bekerülnek.</p>
+<div class="tools"><input id="lq" type="search" placeholder="Keresés: tag, név, művelet, részlet" aria-label="Napló keresése" style="flex:1 1 260px">
+<select id="la" aria-label="Művelet"><option value="">Minden művelet</option><option value="befizet">Befizetések</option><option value="tag">Tagok</option><option value="csomag">Csomagok</option><option value="belép">Belépések</option><option value="kézi">Kézi szerkesztés</option></select>
+<button type="button" id="lr">Napló frissítése</button></div>
+<p class="note" id="lnote">Betöltés…</p>
+<table class="stack"><thead><tr><th>Időpont</th><th>Ki</th><th>Művelet</th><th>Tag</th><th>Részletek</th></tr></thead><tbody id="lt"></tbody></table>
+</section>
+
 <section id="tagok">
 <div class="kpis" id="mk"></div>
 <div class="tools">
@@ -119,7 +128,7 @@ label{display:grid;gap:4px;font-size:14px;font-weight:600}
 <form class="tools" id="kf" style="margin-top:12px"><input id="kn" placeholder="Csomag neve" required aria-label="Csomag neve"><input id="kfee" type="number" min="0" placeholder="Éves díj" required aria-label="Éves díj"><button class="pri">Hozzáadás</button></form></div>
 </section>
 </main>
-<div id="login" role="dialog" aria-modal="true"><form id="lf"><h2>VESC tagdíjak</h2><p class="note">Add meg a klub jelszavát.</p><input id="lk" type="password" autocomplete="current-password" aria-label="Jelszó" required style="width:100%"><p id="lmsg" class="note" style="margin:8px 0"></p><button class="pri" style="width:100%">Belépés</button></form></div>
+<div id="login" role="dialog" aria-modal="true"><form id="lf"><h2>VESC tagdíjak</h2><p class="note">Add meg a neved és a klub jelszavát. A neved a naplóba kerül minden módosításodnál.</p><label>Neved<input id="lb" autocomplete="name" required style="width:100%"></label><label style="margin-top:10px">Jelszó<input id="lk" type="password" autocomplete="current-password" required style="width:100%"></label><p id="lmsg" class="note" style="margin:8px 0"></p><button class="pri" style="width:100%">Belépés</button></form></div>
 <div id="dlg" role="dialog" aria-modal="true"><div id="dlgB"></div></div>
 <div id="toast" role="status"><span id="tt"></span><button type="button" id="tu" hidden>Visszavonás</button></div>
 <script>
@@ -131,12 +140,12 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const ft=n=>(Math.round(+n||0)).toLocaleString('hu-HU')+' Ft';
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 /* ===== BEÁLLÍTÁS: ide másold az Apps Script webalkalmazás URL-jét ===== */
-const API_URL='https://script.google.com/macros/s/AKfycbx3y6CGJAiCMlpnPQlrNMOSw3gu6gaiBt9hS7ABmiWQwWMIJWR-_oat5Nx8X7RgDBCL/exec';
+const API_URL='IDE_MASOLD_A_WEBAPP_URL-T';
 /* ===================================================================== */
 let cfg={packages:[]},members=[],payments=[],Y=CY,editId=null,autoAmt=true,busy=0;
-let KEY='';try{KEY=localStorage.getItem('vesc-tagdij-key')||''}catch(e){}
+let KEY='',BY='',LOG=[];try{KEY=localStorage.getItem('vesc-tagdij-key')||'';BY=localStorage.getItem('vesc-tagdij-by')||''}catch(e){}
 async function api(action,payload){
- const r=action==='all'?await fetch(API_URL+'?action=all&key='+encodeURIComponent(KEY)):await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:KEY,action,...payload})});
+ const r=(action==='all'||action==='log')?await fetch(API_URL+'?action='+action+'&key='+encodeURIComponent(KEY)+'&by='+encodeURIComponent(BY)):await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:KEY,by:BY,action,...payload})});
  const j=await r.json();if(!j.ok){const e=new Error(j.error||'Ismeretlen hiba');e.auth=/jelszó/i.test(j.error||'');throw e}return j.data}
 async function load(){const d=await api('all');cfg={packages:d.packages||[]};members=d.members||[];payments=d.payments||[];render();$('#st').textContent=members.length+' tag, '+payments.length+' befizetés · frissítve '+new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'})}
 
@@ -156,7 +165,7 @@ let tT;function toast(msg,undo){$('#tt').textContent=msg;const u=$('#tu');u.hidd
 async function w(fn,ok){busy++;$('#st').textContent='Mentés…';document.body.style.cursor='progress';try{const r=await fn();await load();if(ok)toast(ok);return r===undefined?true:r}catch(e){if(e.auth)showLogin('Hibás jelszó, add meg újra.');toast('Hiba: '+e.message);try{await load()}catch(_){}return null}finally{busy--;document.body.style.cursor=''}}
 
 /* routing */
-const views=['attekintes','racs','befizetes','tagok'];
+const views=['attekintes','racs','befizetes','tagok','naplo'];
 function route(){const h=location.hash.slice(1),v=views.includes(h)?h:'attekintes';for(const x of views)$('#'+x).classList.toggle('on',x===v);for(const a of document.querySelectorAll('nav a'))a.classList.toggle('on',a.getAttribute('href')==='#'+v)}
 addEventListener('hashchange',route);
 
@@ -226,7 +235,7 @@ function openM(id){const m=id?mById(id):{name:'',active:true,pkgs:{}};if(!m)retu
  '<div class="row"><label>Születési dátum<input type="date" name="birth" value="'+v('birth')+'"></label><label>Belépés dátuma<input type="date" name="joined" value="'+v('joined')+'"></label><label>Kilépés dátuma<input type="date" name="left" value="'+v('left')+'"></label></div>'+
  '<div class="row"><label>Licencszám<input name="license" value="'+v('license')+'"></label><label>Pólóméret<select name="shirt">'+SIZES.map(x=>'<option'+(x===(m.shirt||'')?' selected':'')+' value="'+x+'">'+(x||'–')+'</option>').join('')+'</select></label><label style="align-content:end"><span style="display:flex;gap:8px;align-items:center;min-height:44px"><input type="checkbox" name="active" style="width:22px;min-height:22px"'+(isAct(m)?' checked':'')+'> Aktív tag</span></label></div>'+
  '<label>Megjegyzés<textarea name="note" rows="2">'+v('note')+'</textarea></label>'+
- '<div class="tools"><button class="pri">'+(id?'Adatok mentése':'Tag felvétele')+'</button>'+(id&&!payments.some(x=>x.memberId===id)?'<button type="button" class="del" data-dm="'+esc(id)+'">Tag törlése</button>':'')+'</div></form>';
+ '<div class="tools"><button class="pri">'+(id?'Adatok mentése':'Tag felvétele')+'</button>'+(id?'<button type="button" data-lg="'+esc(m.name)+'">Előzmények a naplóban</button>':'')+(id&&!payments.some(x=>x.memberId===id)?'<button type="button" class="del" data-dm="'+esc(id)+'">Tag törlése</button>':'')+'</div></form>';
  if(id){const s=stat(m,Y);h+='<h2 style="font-size:18px;margin:28px 0 8px">Befizetések '+Y+'</h2><div class="kpis"><div class="k"><b>'+ft(s.paid)+'</b><span>Befizetve / '+ft(s.fee)+'</span></div><div class="k"><b>'+ft(Math.max(0,s.rem))+'</b><span>Fennmaradó</span></div><div class="k"><b>'+ft(s.over)+'</b><span>Időarányos tartozás</span></div></div>'+
  '<table class="stack"><thead><tr><th>Dátum</th><th>Időszak</th><th class="n">Összeg</th><th>Mód</th><th>Megjegyzés</th><th></th></tr></thead><tbody>'+(s.ps.length?s.ps.map(p=>'<tr><td>'+esc(p.date)+'</td><td>'+esc(per(p))+'</td><td class="n">'+ft(p.amount)+'</td><td>'+esc(p.method)+'</td><td>'+esc(p.note)+'</td><td style="white-space:nowrap"><button class="sm" data-ep="'+esc(p.id)+'">Szerkesztés</button> <button class="sm del" data-xp="'+esc(p.id)+'">Törlés</button></td></tr>').join(''):'<tr><td colspan="6">Nincs befizetés ebben az évben.</td></tr>')+'</tbody></table><div class="tools" style="margin-top:16px"><button class="pri" type="button" data-np="'+esc(id)+'">Új befizetés ennek a tagnak</button></div>'}
  openD(h)}
@@ -254,6 +263,7 @@ $('#dlg').addEventListener('click',async e=>{const t=e.target;if(t.id==='dlg'||t
  if(t.dataset.xp){if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Biztosan?';return}const p=payments.find(x=>x.id===t.dataset.xp);if(!p)return;const{id,...d}=p;
   closeD();const ok=await w(()=>api('deletePayment',{id}));if(ok!==null)toast('Befizetés törölve',()=>w(()=>api('addPayment',{data:d}),'Visszaállítva'))}
  if(t.dataset.dm){if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Biztosan törlöd?';return}const m=mById(t.dataset.dm);closeD();w(()=>api('deleteMember',{id:m.id}),'Tag törölve: '+m.name)}
+ if(t.dataset.lg){closeD();showMemberLog(t.dataset.lg);return}
  if(t.id==='mcopy'){const ta=$('#mlist');try{await navigator.clipboard.writeText(ta.value);toast('E-mail címek a vágólapon')}catch(_){ta.select();toast('Jelöld ki és másold Ctrl+C-vel')}}
  if(t.id==='bgo'){const nw=parseBulk($('#bt').value);if(!nw.length)return toast('Nincs beillesztett név');const pkg=$('#bp').value;closeD();const r=await w(()=>api('addMembers',{list:nw,pkg,year:Y}));if(r&&r.added!=null)toast(r.added+' tag felvéve'+(r.skipped&&r.skipped.length?', '+r.skipped.length+' már szerepelt':''))}});
 addEventListener('keydown',e=>{if(e.key==='Escape')closeD()});
@@ -298,15 +308,26 @@ $('#exp').onclick=async()=>{const rows=visible(Y).map(m=>({m,s:stat(m,Y)})).sort
  const csv='﻿'+lines.join('\r\n');
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='vesc-tagdij-'+Y+'.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)};
 
+/* napló */
+let logLoaded=0;
+async function loadLog(){$('#lnote').textContent='Betöltés…';try{LOG=await api('log');logLoaded=Date.now();renderLog()}catch(e){$('#lnote').textContent='A napló nem érhető el: '+e.message}}
+function renderLog(){const q=$('#lq').value.trim().toLowerCase(),a=$('#la').value;
+ const l=LOG.filter(x=>(!a||x.action.toLowerCase().includes(a))&&(!q||[x.by,x.action,x.member,x.details].some(v=>String(v).toLowerCase().includes(q))));
+ $('#lnote').textContent=l.length+' bejegyzés'+(LOG.length>=1000?' (a legutóbbi 1000-ből)':'')+(logLoaded?' · frissítve '+new Date(logLoaded).toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'}):'');
+ const cls=x=>/törölve|sikertelen/i.test(x)?'bad':/új/i.test(x)?'ok':/belépés/i.test(x)?'mid':'warn';
+ $('#lt').innerHTML=l.length?l.map(x=>'<tr><td style="white-space:nowrap">'+esc(x.at)+'</td><td>'+esc(x.by)+'</td><td><span class="b '+cls(x.action)+'">'+esc(x.action)+'</span></td><td>'+esc(x.member||'–')+'</td><td style="overflow-wrap:anywhere">'+esc(x.details||'')+'</td></tr>').join(''):'<tr><td colspan="5">Nincs bejegyzés.</td></tr>'}
+$('#lq').addEventListener('input',renderLog);$('#la').addEventListener('input',renderLog);$('#lr').onclick=loadLog;
+addEventListener('hashchange',()=>{if(location.hash==='#naplo'&&KEY)loadLog()});
+function showMemberLog(name){location.hash='naplo';$('#lq').value=name;$('#la').value='';renderLog()}
 /* login & data */
-function showLogin(msg){$('#lmsg').textContent=msg||'';$('#login').classList.add('on');$('#lk').focus()}
-$('#lf').onsubmit=async e=>{e.preventDefault();KEY=$('#lk').value;$('#lmsg').textContent='Ellenőrzés…';try{await load();try{localStorage.setItem('vesc-tagdij-key',KEY)}catch(_){}$('#login').classList.remove('on');$('#lk').value=''}catch(er){$('#lmsg').textContent=er.auth?'Hibás jelszó.':'Hiba: '+er.message}};
+function showLogin(msg){$('#lmsg').textContent=msg||'';$('#lb').value=BY;$('#login').classList.add('on');(BY?$('#lk'):$('#lb')).focus()}
+$('#lf').onsubmit=async e=>{e.preventDefault();KEY=$('#lk').value;BY=$('#lb').value.trim();if(!BY)return;$('#lmsg').textContent='Ellenőrzés…';try{await load();api('login').catch(()=>{});try{localStorage.setItem('vesc-tagdij-key',KEY);localStorage.setItem('vesc-tagdij-by',BY)}catch(_){}$('#login').classList.remove('on');$('#lk').value='';if(location.hash==='#naplo')loadLog()}catch(er){$('#lmsg').textContent=er.auth?'Hibás jelszó.':'Hiba: '+er.message}};
 $('#logout').onclick=()=>{KEY='';try{localStorage.removeItem('vesc-tagdij-key')}catch(_){}members=[];payments=[];render();showLogin()};
 $('#refresh').onclick=()=>load().catch(e=>toast('Hiba: '+e.message));
 addEventListener('visibilitychange',()=>{if(!document.hidden&&KEY&&!busy)load().catch(()=>{})});
 route();resetForm();render();
 if(API_URL.startsWith('IDE_'))$('#st').textContent='Még nincs beállítva az Apps Script URL (index.html, API_URL).';
-else if(!KEY)showLogin();
-else load().catch(e=>{if(e.auth)showLogin('Add meg a jelszót.');else $('#st').textContent='Az adatok nem érhetők el: '+e.message});
+else if(!KEY||!BY)showLogin();
+else load().then(()=>{if(location.hash==='#naplo')loadLog()}).catch(e=>{if(e.auth)showLogin('Add meg a jelszót.');else $('#st').textContent='Az adatok nem érhetők el: '+e.message});
 }
 </script></body></html>
