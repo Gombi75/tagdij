@@ -105,15 +105,19 @@ label{display:grid;gap:4px;font-size:14px;font-weight:600}
 <div class="card" id="pcard"><b>Válassz befizetőt</b><p class="note">Itt látod a tag csomagját, eddigi befizetéseit és a fennmaradó összeget.</p></div>
 </div></section>
 
-<section id="tagok"><div class="two">
-<div><h2>Tagok</h2>
-<form class="tools" id="mf"><input id="mn" placeholder="Új tag neve" required aria-label="Új tag neve"><select id="mp" aria-label="Csomag"></select><button class="pri">Tag hozzáadása</button></form>
+<section id="tagok">
+<div class="kpis" id="mk"></div>
+<div class="tools">
+<input id="mq" type="search" placeholder="Keresés: név, e-mail, telefon, licenc" aria-label="Tag keresése" style="flex:1 1 240px">
+<select id="mst" aria-label="Állapot"><option value="act">Aktív tagok</option><option value="ina">Inaktív / kilépett</option><option value="all">Mindenki</option></select>
+<select id="mpk" aria-label="Csomag"></select>
+<button class="pri" type="button" id="mnew">Új tag</button><button type="button" id="mbulk">Tömeges felvitel</button><button type="button" id="mmail">E-mail lista</button></div>
 <p class="note" id="mnote"></p>
-<table class="stack"><thead><tr><th>Név</th><th>Csomag</th><th class="n">Befizetve</th><th>Aktív</th><th></th></tr></thead><tbody id="ml"></tbody></table></div>
-<div><h2>Csomagok</h2><p class="note">Az éves díj minden évre érvényes. A tag csomagját évente a Tagok listában állíthatod be; ha egy évre nincs megadva, az előző évi csomag érvényes.</p>
+<table class="stack"><thead><tr><th>Név</th><th>Csomag</th><th>E-mail</th><th>Telefon</th><th>Belépés</th><th>Állapot</th></tr></thead><tbody id="ml"></tbody></table>
+<div style="max-width:620px;margin-top:40px"><h2>Csomagok</h2><p class="note">Az éves díj minden évre érvényes. A tag csomagját évente a tag adatlapján állíthatod be; ha egy évre nincs megadva, az előző évi csomag érvényes.</p>
 <table><thead><tr><th>Név</th><th class="n">Éves díj (Ft)</th><th></th></tr></thead><tbody id="pl"></tbody></table>
 <form class="tools" id="kf" style="margin-top:12px"><input id="kn" placeholder="Csomag neve" required aria-label="Csomag neve"><input id="kfee" type="number" min="0" placeholder="Éves díj" required aria-label="Éves díj"><button class="pri">Hozzáadás</button></form></div>
-</div></section>
+</section>
 </main>
 <div id="login" role="dialog" aria-modal="true"><form id="lf"><h2>VESC tagdíjak</h2><p class="note">Add meg a klub jelszavát.</p><input id="lk" type="password" autocomplete="current-password" aria-label="Jelszó" required style="width:100%"><p id="lmsg" class="note" style="margin:8px 0"></p><button class="pri" style="width:100%">Belépés</button></form></div>
 <div id="dlg" role="dialog" aria-modal="true"><div id="dlgB"></div></div>
@@ -127,7 +131,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const ft=n=>(Math.round(+n||0)).toLocaleString('hu-HU')+' Ft';
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 /* ===== BEÁLLÍTÁS: ide másold az Apps Script webalkalmazás URL-jét ===== */
-const API_URL='https://script.google.com/macros/s/AKfycbx3y6CGJAiCMlpnPQlrNMOSw3gu6gaiBt9hS7ABmiWQwWMIJWR-_oat5Nx8X7RgDBCL/exec';
+const API_URL='IDE_MASOLD_A_WEBAPP_URL-T';
 /* ===================================================================== */
 let cfg={packages:[]},members=[],payments=[],Y=CY,editId=null,autoAmt=true,busy=0;
 let KEY='';try{KEY=localStorage.getItem('vesc-tagdij-key')||''}catch(e){}
@@ -161,7 +165,7 @@ function opts(sel,list,val){sel.innerHTML=list.map(([v,t])=>'<option value="'+es
 
 function render(){
  opts($('#year'),years().map(y=>[y,y]),Y);opts($('#py'),years().map(y=>[y,y]),$('#py').value||Y);
- const pk=(cfg.packages||[]).map(p=>[p.name,p.name]);opts($('#fpkg'),[['','Minden csomag'],...pk],$('#fpkg').value);opts($('#mp'),pk,$('#mp').value);
+ const pk=(cfg.packages||[]).map(p=>[p.name,p.name]);opts($('#fpkg'),[['','Minden csomag'],...pk],$('#fpkg').value);opts($('#mpk'),[['','Minden csomag'],...pk,['-','Csomag nélkül']],$('#mpk').value);
  renderOv();renderGrid();renderMembers();renderPk();fillMemberSel();renderCard()}
 
 function renderOv(){
@@ -187,12 +191,18 @@ function renderGrid(){
   h+='<td class="n '+(s.rem>0?'rem':'rem0')+'">'+ft(Math.max(0,s.rem))+'</td></tr>'}
  $('#grid').innerHTML=h+'</tbody>'}
 
+const SIZES=['','XS','S','M','L','XL','XXL','3XL'];
+const isAct=m=>m.active!==false;
+const hd=d=>d?String(d).replace(/-/g,'.')+'.':'–';
+function mFiltered(){const q=$('#mq').value.trim().toLowerCase(),st=$('#mst').value,pf=$('#mpk').value;
+ return members.filter(m=>(st==='all'||(st==='act'?isAct(m):!isAct(m)))&&(!pf||(pf==='-'?!pkgFor(m,Y).name:pkgFor(m,Y).name===pf))&&(!q||[m.name,m.email,m.phone,m.license].some(v=>String(v||'').toLowerCase().includes(q)))).sort((a,b)=>String(a.name).localeCompare(String(b.name),'hu'))}
 function renderMembers(){
- const pk=(cfg.packages||[]);
- $('#mnote').textContent='A csomag a(z) '+Y+'. évre vonatkozik. Tagot csak akkor lehet törölni, ha nincs befizetése; egyébként állítsd inaktívra.';
- const list=[...members].sort((a,b)=>String(a.name).localeCompare(String(b.name),'hu'));
- $('#ml').innerHTML=list.length?list.map(m=>{const p=pkgFor(m,Y),cnt=payments.filter(x=>x.memberId===m.id).length,paid=payments.filter(x=>x.memberId===m.id&&+x.year===Y).reduce((s,x)=>s+(+x.amount||0),0);
-  return'<tr><td><input data-rn="'+esc(m.id)+'" value="'+esc(m.name)+'" aria-label="Név" style="width:100%"></td><td><select data-pk="'+esc(m.id)+'" aria-label="Csomag"><option value="">–</option>'+pk.map(x=>'<option'+(x.name===p.name?' selected':'')+' value="'+esc(x.name)+'">'+esc(x.name)+'</option>').join('')+'</select>'+(p.inh&&p.name?' <span class="tag">előző évi</span>':'')+'</td><td class="n">'+ft(paid)+'</td><td><input type="checkbox" data-ac="'+esc(m.id)+'"'+(m.active!==false?' checked':'')+' aria-label="Aktív" style="min-height:24px;width:24px"></td><td>'+(cnt?'':'<button class="sm del" data-dm="'+esc(m.id)+'">Törlés</button>')+'</td></tr>'}).join(''):'<tr><td colspan="5">Még nincs tag.</td></tr>'}
+ const act=members.filter(isAct),mm=String(CM).padStart(2,'0'),bd=act.filter(m=>String(m.birth||'').slice(5,7)===mm);
+ $('#mk').innerHTML=[[act.length,'Aktív tag'],[members.length-act.length,'Inaktív / kilépett'],[act.filter(m=>!m.email).length,'Aktív tag e-mail cím nélkül'],[bd.length,'Születésnap ebben a hónapban'+(bd.length?': '+bd.map(m=>m.name).join(', '):'')]].map(([b,t])=>'<div class="k"><b>'+esc(b)+'</b><span>'+esc(t)+'</span></div>').join('');
+ const list=mFiltered();
+ $('#mnote').textContent=list.length+' tag a listában · a csomag a(z) '+Y+'. évre vonatkozik · kattints egy tagra az adatlapjáért';
+ $('#ml').innerHTML=list.length?list.map(m=>{const p=pkgFor(m,Y);
+  return'<tr class="click" data-mid="'+esc(m.id)+'" tabindex="0"><td><b>'+esc(m.name)+'</b></td><td>'+esc(p.name||'–')+(p.inh&&p.name?' <span class="tag">(előző évi)</span>':'')+'</td><td>'+esc(m.email||'–')+'</td><td style="white-space:nowrap">'+esc(m.phone||'–')+'</td><td style="white-space:nowrap">'+esc(hd(m.joined))+'</td><td>'+(isAct(m)?'<span class="b ok">Aktív</span>':'<span class="b mid">'+(m.left?'Kilépett '+esc(hd(m.left)):'Inaktív')+'</span>')+'</td></tr>'}).join(''):'<tr><td colspan="6">'+(members.length?'Nincs a szűrésnek megfelelő tag.':'Még nincs tag.')+'</td></tr>'}
 function renderPk(){$('#pl').innerHTML=(cfg.packages||[]).map((p,i)=>'<tr><td><b>'+esc(p.name)+'</b></td><td class="n"><input type="number" min="0" data-fee="'+i+'" value="'+esc(p.fee)+'" style="width:9em;text-align:right" aria-label="Éves díj"></td><td>'+(members.some(m=>Object.values(m.pkgs||{}).includes(p.name))?'':'<button class="sm del" data-dp="'+i+'">Törlés</button>')+'</td></tr>').join('')||'<tr><td colspan="3">Még nincs csomag.</td></tr>'}
 
 function fillMemberSel(){const sel=$('#pm'),v=sel.value,y=+$('#py').value||Y;const g={};for(const m of members.filter(m=>m.active!==false||m.id===v)){const k=pkgFor(m,y).name||'Csomag nélkül';(g[k]=g[k]||[]).push(m)}
@@ -202,17 +212,50 @@ function renderCard(){const m=mById($('#pm').value),y=+$('#py').value||Y;if(!m){
  $('#pcard').innerHTML='<h2>'+esc(m.name)+'</h2><span class="b mid">'+esc(s.pk.name||'Nincs csomag')+' · '+y+'</span><dl><dt>Éves díj</dt><dd>'+ft(s.fee)+'</dd><dt>Befizetve</dt><dd>'+ft(s.paid)+'</dd><dt>Fennmaradó</dt><dd><b>'+ft(Math.max(0,s.rem))+'</b></dd><dt>Időarányos tartozás</dt><dd>'+ft(s.over)+'</dd><dt>Fedezve eddig</dt><dd>'+(s.cov?esc(M[s.cov-1]):'–')+'</dd></dl>'+(rem>0?'<button type="button" id="fillRem">Teljes fennmaradó beírása ('+ft(rem)+')</button>':'')+(s.ps.length?'<p class="note" style="margin-top:12px">'+s.ps.map(p=>esc(per(p))+': '+ft(p.amount)).join(' · ')+'</p>':'');
  const b=$('#fillRem');if(b)b.onclick=()=>{$('#pa').value=rem;autoAmt=false;if(s.cov<12){$('#pf1').value=Math.min(12,s.cov+1);$('#pt1').value=12}}}
 
-/* member dialog */
-function openM(id){const m=mById(id);if(!m)return;const s=stat(m,Y);
- $('#dlgB').innerHTML='<div class="tools" style="justify-content:space-between"><h2 style="margin:0">'+esc(m.name)+'</h2><button type="button" id="dx">Bezárás</button></div><p>'+badge(s)+' <span class="b mid">'+esc(s.pk.name||'Nincs csomag')+' · '+Y+'</span></p><div class="kpis"><div class="k"><b>'+ft(s.paid)+'</b><span>Befizetve / '+ft(s.fee)+'</span></div><div class="k"><b>'+ft(Math.max(0,s.rem))+'</b><span>Fennmaradó</span></div><div class="k"><b>'+ft(s.over)+'</b><span>Időarányos tartozás</span></div></div>'+
- '<table class="stack"><thead><tr><th>Dátum</th><th>Időszak</th><th class="n">Összeg</th><th>Mód</th><th>Megjegyzés</th><th></th></tr></thead><tbody>'+(s.ps.length?s.ps.map(p=>'<tr><td>'+esc(p.date)+'</td><td>'+esc(per(p))+'</td><td class="n">'+ft(p.amount)+'</td><td>'+esc(p.method)+'</td><td>'+esc(p.note)+'</td><td style="white-space:nowrap"><button class="sm" data-ep="'+esc(p.id)+'">Szerkesztés</button> <button class="sm del" data-xp="'+esc(p.id)+'">Törlés</button></td></tr>').join(''):'<tr><td colspan="6">Nincs befizetés ebben az évben.</td></tr>')+'</tbody></table><div class="tools" style="margin-top:16px"><button class="pri" type="button" data-np="'+esc(m.id)+'">Új befizetés ennek a tagnak</button></div>';
- $('#dlg').classList.add('on');$('#dx').focus()}
+/* tag-adatlap */
+let dlgMid=null;
+function openD(html){$('#dlgB').innerHTML=html;$('#dlg').classList.add('on');const f=$('#dlgB').querySelector('input,button');if(f)f.focus()}
+const dHead=t=>'<div class="tools" style="justify-content:space-between"><h2 style="margin:0">'+esc(t)+'</h2><button type="button" id="dx">Bezárás</button></div>';
+function openM(id){const m=id?mById(id):{name:'',active:true,pkgs:{}};if(!m)return;dlgMid=id||null;
+ const p=pkgFor(m,Y),v=k=>esc(m[k]||''),pk=(cfg.packages||[]);
+ let h=dHead(id?m.name:'Új tag');
+ if(id){const s=stat(m,Y);h+='<p>'+badge(s)+' <span class="b mid">'+esc(s.pk.name||'Nincs csomag')+' · '+Y+'</span> '+(isAct(m)?'':'<span class="b mid">Inaktív</span>')+'</p>'}
+ h+='<form id="mfm" class="f" style="max-width:none;margin-top:8px"><h2 style="font-size:18px;margin:0">Adatok</h2>'+
+ '<div class="row"><label>Név<input name="name" required value="'+v('name')+'"></label><label>Csomag ('+Y+')<select name="pkg"><option value="">–</option>'+pk.map(x=>'<option'+(x.name===p.name?' selected':'')+' value="'+esc(x.name)+'">'+esc(x.name)+'</option>').join('')+'</select></label></div>'+
+ '<div class="row"><label>E-mail<input type="email" name="email" value="'+v('email')+'"></label><label>Telefon<input type="tel" name="phone" value="'+v('phone')+'"></label></div>'+
+ '<div class="row"><label>Születési dátum<input type="date" name="birth" value="'+v('birth')+'"></label><label>Belépés dátuma<input type="date" name="joined" value="'+v('joined')+'"></label><label>Kilépés dátuma<input type="date" name="left" value="'+v('left')+'"></label></div>'+
+ '<div class="row"><label>Licencszám<input name="license" value="'+v('license')+'"></label><label>Pólóméret<select name="shirt">'+SIZES.map(x=>'<option'+(x===(m.shirt||'')?' selected':'')+' value="'+x+'">'+(x||'–')+'</option>').join('')+'</select></label><label style="align-content:end"><span style="display:flex;gap:8px;align-items:center;min-height:44px"><input type="checkbox" name="active" style="width:22px;min-height:22px"'+(isAct(m)?' checked':'')+'> Aktív tag</span></label></div>'+
+ '<label>Megjegyzés<textarea name="note" rows="2">'+v('note')+'</textarea></label>'+
+ '<div class="tools"><button class="pri">'+(id?'Adatok mentése':'Tag felvétele')+'</button>'+(id&&!payments.some(x=>x.memberId===id)?'<button type="button" class="del" data-dm="'+esc(id)+'">Tag törlése</button>':'')+'</div></form>';
+ if(id){const s=stat(m,Y);h+='<h2 style="font-size:18px;margin:28px 0 8px">Befizetések '+Y+'</h2><div class="kpis"><div class="k"><b>'+ft(s.paid)+'</b><span>Befizetve / '+ft(s.fee)+'</span></div><div class="k"><b>'+ft(Math.max(0,s.rem))+'</b><span>Fennmaradó</span></div><div class="k"><b>'+ft(s.over)+'</b><span>Időarányos tartozás</span></div></div>'+
+ '<table class="stack"><thead><tr><th>Dátum</th><th>Időszak</th><th class="n">Összeg</th><th>Mód</th><th>Megjegyzés</th><th></th></tr></thead><tbody>'+(s.ps.length?s.ps.map(p=>'<tr><td>'+esc(p.date)+'</td><td>'+esc(per(p))+'</td><td class="n">'+ft(p.amount)+'</td><td>'+esc(p.method)+'</td><td>'+esc(p.note)+'</td><td style="white-space:nowrap"><button class="sm" data-ep="'+esc(p.id)+'">Szerkesztés</button> <button class="sm del" data-xp="'+esc(p.id)+'">Törlés</button></td></tr>').join(''):'<tr><td colspan="6">Nincs befizetés ebben az évben.</td></tr>')+'</tbody></table><div class="tools" style="margin-top:16px"><button class="pri" type="button" data-np="'+esc(id)+'">Új befizetés ennek a tagnak</button></div>'}
+ openD(h)}
+function nd(x){x=String(x||'').trim().replace(/\.$/,'');const r=x.match(/^(\d{4})[.\-\/ ]+(\d{1,2})[.\-\/ ]+(\d{1,2})$/);return r?r[1]+'-'+r[2].padStart(2,'0')+'-'+r[3].padStart(2,'0'):''}
+function parseBulk(t){return t.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>{const c=l.split(/\t|;/).map(x=>x.trim());if(c.length===1&&l.includes(','))c.splice(0,1,...l.split(',').map(x=>x.trim()));
+ const it={name:c[0]||''};for(const x of c.slice(1)){if(!x)continue;if(x.includes('@'))it.email=x;else if(nd(x)){if(!it.birth)it.birth=nd(x);else it.joined=nd(x)}else if(/^[+\d][\d\s\/\-()]{5,}$/.test(x))it.phone=x}return it}).filter(it=>it.name)}
+function openBulk(){openD(dHead('Tömeges felvitel')+'<p class="note">Másold be a névsort, soronként egy tagot. Excelből több oszlop is jöhet (név, e-mail, telefon, születési dátum, belépés dátuma); az oszlopokat a program felismeri, a sorrend mindegy, csak a név legyen az első.</p><textarea id="bt" rows="10" style="width:100%" placeholder="Kiss Péter;kiss.peter@gmail.com;+36 30 123 4567;1985.04.12"></textarea><div class="row" style="margin-top:12px"><label>Csomag ('+Y+')<select id="bp"><option value="">–</option>'+(cfg.packages||[]).map(x=>'<option value="'+esc(x.name)+'">'+esc(x.name)+'</option>').join('')+'</select></label></div><p class="note" id="bprev" style="margin-top:12px">Még nincs beillesztve semmi.</p><button class="pri" type="button" id="bgo">Tagok felvétele</button>')}
+function bulkPrev(){const l=parseBulk($('#bt').value),have=new Set(members.map(m=>String(m.name).trim().toLowerCase())),nw=l.filter(x=>!have.has(x.name.toLowerCase())),old=l.length-nw.length;
+ $('#bprev').textContent=l.length?nw.length+' új tag'+(old?', '+old+' már szerepel (kihagyom)':'')+(nw.length?': '+nw.slice(0,8).map(x=>x.name+(x.email?' ('+x.email+')':'')).join(', ')+(nw.length>8?' …':''):''):'Még nincs beillesztve semmi.'}
+function openMail(){const l=mFiltered(),w=l.filter(m=>m.email),wo=l.filter(m=>!m.email);
+ openD(dHead('E-mail lista')+'<p class="note">'+w.length+' cím a Tagok fül jelenlegi szűrése szerint ('+esc($('#mst').selectedOptions[0].textContent)+'). Bemásolhatod a Gmail Címzett vagy Titkos másolat (Bcc) mezőjébe.</p><textarea id="mlist" rows="6" style="width:100%" readonly>'+esc(w.map(m=>m.email).join('; '))+'</textarea><div class="tools" style="margin-top:12px"><button class="pri" type="button" id="mcopy">Másolás</button></div>'+(wo.length?'<p class="note">Nincs e-mail címe: '+esc(wo.map(m=>m.name).join(', '))+'</p>':''))}
+$('#dlg').addEventListener('submit',async e=>{if(e.target.id!=='mfm')return;e.preventDefault();const fd=new FormData(e.target),g=k=>String(fd.get(k)||'').trim();
+ const name=g('name');if(!name)return toast('Add meg a nevet');
+ const fields={};for(const k of['email','phone','birth','joined','left','license','shirt','note'])fields[k]=g(k);
+ let active=fd.get('active')==='on';if(fields.left&&fields.left<=today()&&active){active=false;toast('Kilépés dátuma miatt inaktívra állítva')}
+ const id=dlgMid,pkg=g('pkg');
+ if(!id){if(members.some(m=>String(m.name).trim().toLowerCase()===name.toLowerCase()))return toast('Már van ilyen nevű tag');closeD();await w(()=>api('addMember',{name,pkg,year:Y,active,fields}),'Tag felvéve: '+name);return}
+ const m=mById(id),pl={id,name,active,fields};if(pkg!==(pkgFor(m,Y).name||'')||(!pkgFor(m,Y).inh&&!pkg)){pl.year=Y;pl.pkg=pkg}
+ closeD();await w(()=>api('updateMember',pl),'Adatok mentve: '+name)});
+$('#dlg').addEventListener('input',e=>{if(e.target.id==='bt')bulkPrev()});
 const closeD=()=>$('#dlg').classList.remove('on');
 $('#dlg').addEventListener('click',async e=>{const t=e.target;if(t.id==='dlg'||t.id==='dx')return closeD();
  if(t.dataset.np){closeD();startNew(t.dataset.np)}
  if(t.dataset.ep){closeD();startEdit(t.dataset.ep)}
  if(t.dataset.xp){if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Biztosan?';return}const p=payments.find(x=>x.id===t.dataset.xp);if(!p)return;const{id,...d}=p;
-  closeD();const ok=await w(()=>api('deletePayment',{id}));if(ok!==null)toast('Befizetés törölve',()=>w(()=>api('addPayment',{data:d}),'Visszaállítva'))}});
+  closeD();const ok=await w(()=>api('deletePayment',{id}));if(ok!==null)toast('Befizetés törölve',()=>w(()=>api('addPayment',{data:d}),'Visszaállítva'))}
+ if(t.dataset.dm){if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Biztosan törlöd?';return}const m=mById(t.dataset.dm);closeD();w(()=>api('deleteMember',{id:m.id}),'Tag törölve: '+m.name)}
+ if(t.id==='mcopy'){const ta=$('#mlist');try{await navigator.clipboard.writeText(ta.value);toast('E-mail címek a vágólapon')}catch(_){ta.select();toast('Jelöld ki és másold Ctrl+C-vel')}}
+ if(t.id==='bgo'){const nw=parseBulk($('#bt').value);if(!nw.length)return toast('Nincs beillesztett név');const pkg=$('#bp').value;closeD();const r=await w(()=>api('addMembers',{list:nw,pkg,year:Y}));if(r&&r.added!=null)toast(r.added+' tag felvéve'+(r.skipped&&r.skipped.length?', '+r.skipped.length+' már szerepelt':''))}});
 addEventListener('keydown',e=>{if(e.key==='Escape')closeD()});
 $('#ov').addEventListener('click',e=>{const tr=e.target.closest('tr[data-id]');if(tr)openM(tr.dataset.id)});
 $('#ov').addEventListener('keydown',e=>{const tr=e.target.closest('tr[data-id]');if(tr&&e.key==='Enter')openM(tr.dataset.id)});
@@ -236,13 +279,10 @@ $('#pf').onsubmit=async e=>{e.preventDefault();const m=mById($('#pm').value),a=M
  else{$('#psave').disabled=true;const nid=await w(()=>api('addPayment',{data:d}));$('#psave').disabled=false;if(nid){toast('Rögzítve: '+m.name+', '+ft(a)+' ('+per(d)+')',()=>w(()=>api('deletePayment',{id:nid}),'Visszavonva'));const keepD=$('#pd').value,keepY=$('#py').value;resetForm();$('#pd').value=keepD;$('#py').value=keepY}}};
 
 /* members & packages */
-$('#mf').onsubmit=async e=>{e.preventDefault();const n=$('#mn').value.trim(),p=$('#mp').value;if(!n)return;if(members.some(m=>String(m.name).toLowerCase()===n.toLowerCase()))return toast('Már van ilyen nevű tag');
- const r=await w(()=>api('addMember',{name:n,pkg:p,year:Y}),'Tag hozzáadva: '+n);if(r)$('#mn').value=''};
-$('#ml').addEventListener('change',e=>{const t=e.target;
- if(t.dataset.rn){const n=t.value.trim();if(n)w(()=>api('updateMember',{id:t.dataset.rn,name:n}),'Név mentve')}
- if(t.dataset.pk){w(()=>api('updateMember',{id:t.dataset.pk,year:Y,pkg:t.value}),'Csomag mentve ('+Y+')')}
- if(t.dataset.ac)w(()=>api('updateMember',{id:t.dataset.ac,active:t.checked}))});
-$('#ml').addEventListener('click',e=>{const t=e.target;if(!t.dataset.dm)return;if(t.dataset.sure!=='1'){t.dataset.sure='1';t.textContent='Biztosan?';return}const m=mById(t.dataset.dm);w(()=>api('deleteMember',{id:m.id}),'Tag törölve: '+m.name)});
+$('#ml').addEventListener('click',e=>{const tr=e.target.closest('tr[data-mid]');if(tr)openM(tr.dataset.mid)});
+$('#ml').addEventListener('keydown',e=>{const tr=e.target.closest('tr[data-mid]');if(tr&&e.key==='Enter')openM(tr.dataset.mid)});
+for(const id of['#mq','#mst','#mpk'])$(id).addEventListener('input',renderMembers);
+$('#mnew').onclick=()=>openM(null);$('#mbulk').onclick=openBulk;$('#mmail').onclick=openMail;
 const saveCfg=(pk,msg)=>w(()=>api('savePackages',{packages:pk}),msg);
 $('#pl').addEventListener('change',e=>{const i=e.target.dataset.fee;if(i==null)return;const pk=cfg.packages.map(x=>({...x}));pk[i].fee=Math.max(0,Math.round(+e.target.value||0));saveCfg(pk,'Díj mentve')});
 $('#pl').addEventListener('click',e=>{const i=e.target.dataset.dp;if(i==null)return;saveCfg(cfg.packages.filter((_,j)=>j!=i),'Csomag törölve')});
