@@ -140,7 +140,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const ft=n=>(Math.round(+n||0)).toLocaleString('hu-HU')+' Ft';
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 /* ===== BEÁLLÍTÁS: ide másold az Apps Script webalkalmazás URL-jét ===== */
-const API_URL='https://script.google.com/macros/s/AKfycbx3y6CGJAiCMlpnPQlrNMOSw3gu6gaiBt9hS7ABmiWQwWMIJWR-_oat5Nx8X7RgDBCL/exec';
+const API_URL='IDE_MASOLD_A_WEBAPP_URL-T';
 /* ===================================================================== */
 let cfg={packages:[]},members=[],payments=[],Y=CY,editId=null,autoAmt=true,busy=0;
 let KEY='',BY='',LOG=[];try{KEY=localStorage.getItem('vesc-tagdij-key')||'';BY=localStorage.getItem('vesc-tagdij-by')||''}catch(e){}
@@ -310,7 +310,7 @@ $('#exp').onclick=async()=>{const rows=visible(Y).map(m=>({m,s:stat(m,Y)})).sort
 
 /* napló */
 let logLoaded=0;
-async function loadLog(){$('#lnote').textContent='Betöltés…';try{LOG=await api('log');logLoaded=Date.now();renderLog()}catch(e){$('#lnote').textContent='A napló nem érhető el: '+e.message}}
+async function loadLog(){$('#lnote').textContent='Betöltés…';try{const d=await api('log');if(!Array.isArray(d)){LOG=[];$('#lt').innerHTML='';$('#lnote').textContent='A háttér (Apps Script) még a régi verziót futtatja, ezért nincs napló. Teendő: Apps Script → Telepítés → Telepítések kezelése → ceruza → Verzió: Új verzió → Telepítés.';return}LOG=d;logLoaded=Date.now();renderLog()}catch(e){$('#lnote').textContent='A napló nem érhető el: '+e.message}}
 function renderLog(){const q=$('#lq').value.trim().toLowerCase(),a=$('#la').value;
  const l=LOG.filter(x=>(!a||x.action.toLowerCase().includes(a))&&(!q||[x.by,x.action,x.member,x.details].some(v=>String(v).toLowerCase().includes(q))));
  $('#lnote').textContent=l.length+' bejegyzés'+(LOG.length>=1000?' (a legutóbbi 1000-ből)':'')+(logLoaded?' · frissítve '+new Date(logLoaded).toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'}):'');
