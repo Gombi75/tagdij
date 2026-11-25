@@ -108,7 +108,7 @@ label{display:grid;gap:4px;font-size:14px;font-weight:600}
 <section id="naplo">
 <p class="note">Minden változás ide kerül: ki, mikor, mit rögzített, módosított vagy törölt, valamint a belépések. A teljes napló (az előtte/utána állapottal) a Google Sheet <b>Napló</b> lapján is megvan. A táblázatban kézzel végzett módosítások is bekerülnek.</p>
 <div class="tools"><input id="lq" type="search" placeholder="Keresés: tag, név, művelet, részlet" aria-label="Napló keresése" style="flex:1 1 260px">
-<select id="la" aria-label="Művelet"><option value="">Minden művelet</option><option value="befizet">Befizetések</option><option value="tag">Tagok</option><option value="csomag">Csomagok</option><option value="belép">Belépések</option><option value="kézi">Kézi szerkesztés</option></select>
+<select id="la" aria-label="Művelet"><option value="">Minden művelet</option><option value="befizet">Befizetések</option><option value="tag">Tagok</option><option value="csomag">Csomagok</option><option value="lépés">Be- és kilépések</option><option value="kézi">Kézi szerkesztés</option></select>
 <button type="button" id="lr">Napló frissítése</button></div>
 <p class="note" id="lnote">Betöltés…</p>
 <table class="stack"><thead><tr><th>Időpont</th><th>Ki</th><th>Művelet</th><th>Tag</th><th>Részletek</th></tr></thead><tbody id="lt"></tbody></table>
@@ -140,7 +140,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const ft=n=>(Math.round(+n||0)).toLocaleString('hu-HU')+' Ft';
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 /* ===== BEÁLLÍTÁS: ide másold az Apps Script webalkalmazás URL-jét ===== */
-const API_URL='https://script.google.com/macros/s/AKfycbx3y6CGJAiCMlpnPQlrNMOSw3gu6gaiBt9hS7ABmiWQwWMIJWR-_oat5Nx8X7RgDBCL/exec';
+const API_URL='IDE_MASOLD_A_WEBAPP_URL-T';
 /* ===================================================================== */
 let cfg={packages:[]},members=[],payments=[],Y=CY,editId=null,autoAmt=true,busy=0;
 let KEY='',BY='',LOG=[];try{KEY=localStorage.getItem('vesc-tagdij-key')||'';BY=localStorage.getItem('vesc-tagdij-by')||''}catch(e){}
@@ -314,7 +314,7 @@ async function loadLog(){$('#lnote').textContent='Betöltés…';try{const d=awa
 function renderLog(){const q=$('#lq').value.trim().toLowerCase(),a=$('#la').value;
  const l=LOG.filter(x=>(!a||x.action.toLowerCase().includes(a))&&(!q||[x.by,x.action,x.member,x.details].some(v=>String(v).toLowerCase().includes(q))));
  $('#lnote').textContent=l.length+' bejegyzés'+(LOG.length>=1000?' (a legutóbbi 1000-ből)':'')+(logLoaded?' · frissítve '+new Date(logLoaded).toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'}):'');
- const cls=x=>/törölve|sikertelen/i.test(x)?'bad':/új/i.test(x)?'ok':/belépés/i.test(x)?'mid':'warn';
+ const cls=x=>/törölve|sikertelen/i.test(x)?'bad':/új/i.test(x)?'ok':/belépés|kilépés/i.test(x)?'mid':'warn';
  $('#lt').innerHTML=l.length?l.map(x=>'<tr><td style="white-space:nowrap">'+esc(x.at)+'</td><td>'+esc(x.by)+'</td><td><span class="b '+cls(x.action)+'">'+esc(x.action)+'</span></td><td>'+esc(x.member||'–')+'</td><td style="overflow-wrap:anywhere">'+esc(x.details||'')+'</td></tr>').join(''):'<tr><td colspan="5">Nincs bejegyzés.</td></tr>'}
 $('#lq').addEventListener('input',renderLog);$('#la').addEventListener('input',renderLog);$('#lr').onclick=loadLog;
 addEventListener('hashchange',()=>{if(location.hash==='#naplo'&&KEY)loadLog()});
@@ -322,7 +322,7 @@ function showMemberLog(name){location.hash='naplo';$('#lq').value=name;$('#la').
 /* login & data */
 function showLogin(msg){$('#lmsg').textContent=msg||'';$('#lb').value=BY;$('#login').classList.add('on');(BY?$('#lk'):$('#lb')).focus()}
 $('#lf').onsubmit=async e=>{e.preventDefault();KEY=$('#lk').value;BY=$('#lb').value.trim();if(!BY)return;$('#lmsg').textContent='Ellenőrzés…';try{await load();api('login').catch(()=>{});try{localStorage.setItem('vesc-tagdij-key',KEY);localStorage.setItem('vesc-tagdij-by',BY)}catch(_){}$('#login').classList.remove('on');$('#lk').value='';if(location.hash==='#naplo')loadLog()}catch(er){$('#lmsg').textContent=er.auth?'Hibás jelszó.':'Hiba: '+er.message}};
-$('#logout').onclick=()=>{KEY='';try{localStorage.removeItem('vesc-tagdij-key')}catch(_){}members=[];payments=[];render();showLogin()};
+$('#logout').onclick=()=>{if(KEY)api('logout').catch(()=>{});KEY='';try{localStorage.removeItem('vesc-tagdij-key')}catch(_){}members=[];payments=[];LOG=[];render();$('#lt').innerHTML='';showLogin('✓ Sikeresen kiléptél. Újra belépéshez add meg a jelszót.')};
 $('#refresh').onclick=()=>load().catch(e=>toast('Hiba: '+e.message));
 addEventListener('visibilitychange',()=>{if(!document.hidden&&KEY&&!busy)load().catch(()=>{})});
 route();resetForm();render();
