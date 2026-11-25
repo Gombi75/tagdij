@@ -39,6 +39,11 @@ Tagdíj-nyilvántartás a VESC triatlon klubnak. A felület GitHub Pages-en fut,
 - A Sheetet közvetlenül is szerkesztheted (például régi adatok tömeges bemásolásához). Az oldal a **Frissítés** gombra vagy újbóli megnyitáskor tölti be a változásokat.
   - *Tagok* lap: ID, Név, Aktív (igen/nem), és évenként egy oszlop (`2026`, `2027`…) a csomag nevével.
   - *Befizetések* lap: a `TagID` oszlopnak a *Tagok* lap ID-jára kell mutatnia; a `Tól (hó)` és `Ig (hó)` oszlopban 1–12 közötti szám áll.
+- **Tagok fül:** keresés (név, e-mail, telefon, licenc), szűrés állapot és csomag szerint. Egy tagra kattintva megnyílik az **adatlapja**: elérhetőség, születési dátum, belépés és kilépés, licencszám, pólóméret, megjegyzés, valamint az adott évi befizetései.
+  - Ha a kilépés dátumát megadod, a tag automatikusan inaktív lesz.
+  - **Tömeges felvitel:** a névsort soronként kell bemásolni (Excelből több oszlop is jöhet). A már létező neveket kihagyja.
+  - **E-mail lista:** a szűrt tagok e-mail címei egy gombbal kimásolhatók a Gmail Bcc mezőjébe.
+  - A *Tagok* lapon az új oszlopok (E-mail, Telefon, Születési dátum, Belépés, Kilépés, Licencszám, Pólóméret, Megjegyzés) első mentéskor maguktól létrejönnek.
 - **Új év:** a tagok csomagja automatikusan öröklődik az előző évből. A Tagok fülön évenként átállítható.
 - **Jelszócsere:** az Apps Scriptben írd át a `jelszoCsere()` függvényben az új jelszót, és futtasd.
 - **A Code.gs módosítása után:** Telepítés → Telepítések kezelése → szerkesztés → *Új verzió*. Így az URL változatlan marad.
